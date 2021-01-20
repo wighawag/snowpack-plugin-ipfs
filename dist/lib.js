@@ -18,8 +18,15 @@ function print(message) {
     process.stdout.write(message);
 }
 function insertTopOfHead(indexHtml, content) {
-    const head = indexHtml.indexOf('<head>') + 6;
-    indexHtml = indexHtml.slice(0, head) + content + indexHtml.slice(head);
+    let scriptStart = indexHtml.indexOf('<!--SCRIPTS-->');
+    if (scriptStart === -1) {
+        // TODO const regex = /<meta .*charset=.*(>)/;
+        scriptStart = indexHtml.indexOf('<head>') + 6;
+    }
+    else {
+        scriptStart += 14;
+    }
+    indexHtml = indexHtml.slice(0, scriptStart) + content + indexHtml.slice(scriptStart);
     return indexHtml;
 }
 async function generatePages(indexHtml, routes, options, manifest) {
