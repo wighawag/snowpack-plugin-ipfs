@@ -8,7 +8,7 @@ export type SPA2IPFSOptions = {
   routes: string[];
   folderPath: string;
   targetFolderPath?: string;
-  serviceWorkerFileName?: string;
+  serviceWorker?: string;
   useBaseElem?: boolean;
   ethLinkErrorRedirect?: {redirectTo: 'ipns' | 'hash', nodeURL: string};
   applicationFilePath?: string;
@@ -188,7 +188,7 @@ function generateCacheURLs(
 }
 
 function generateServiceWorker(options: SPA2IPFSOptions, manifest?: Manifest) {
-  const serviceWorkerFileName = options.serviceWorkerFileName || 'sw.js';
+  const serviceWorkerFileName = options.serviceWorker || 'sw.js';
   const exportFolder = options.targetFolderPath || options.folderPath;
   print('generating service worker...');
 
@@ -203,8 +203,8 @@ function generateServiceWorker(options: SPA2IPFSOptions, manifest?: Manifest) {
   try {
     sw  = fs.readFileSync(path.join(options.folderPath, serviceWorkerFileName)).toString();
   } catch(e) {
-    if (options.serviceWorkerFileName) {
-      console.error(`no service worker file at ${options.serviceWorkerFileName}`);
+    if (options.serviceWorker) {
+      console.error(`no service worker file at ${options.serviceWorker}`);
       throw e;
     }
   }
@@ -221,7 +221,7 @@ function generateServiceWorker(options: SPA2IPFSOptions, manifest?: Manifest) {
     );
 
     sw = sw.replace(
-      `const CACHE_NAME = 'cache-v1';`,
+      `const CACHE_NAME = 'cache-name';`,
       `const CACHE_NAME = 'cache-${(+new Date()).toString(36)}';`
     );
 
@@ -401,5 +401,7 @@ export function spa2ipfs(options: SPA2IPFSOptions) {
 
 
   generatePages(indexHtml, options, manifest);
-  generateServiceWorker(options, manifest);
+  if (options.serviceWorker) {
+    generateServiceWorker(options, manifest);
+  }
 }

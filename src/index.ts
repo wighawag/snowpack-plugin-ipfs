@@ -4,7 +4,7 @@ import {spa2ipfs} from './lib';
 export type SPA2IPFSPluginOptions = {
   routes: string[];
   // targetFolderPath?: string; // TODO remove
-  serviceWorkerFileName?: string;
+  serviceWorker?: string;
   useBaseElem?: boolean;
   ethLinkErrorRedirect?: {redirectTo: 'ipns' | 'hash', nodeURL: string};
   applicationFilePath?: string;

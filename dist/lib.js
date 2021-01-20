@@ -140,7 +140,7 @@ function generateCacheURLs(exportFolder, subFolders, filter) {
     return bundleFiles;
 }
 function generateServiceWorker(options, manifest) {
-    const serviceWorkerFileName = options.serviceWorkerFileName || 'sw.js';
+    const serviceWorkerFileName = options.serviceWorker || 'sw.js';
     const exportFolder = options.targetFolderPath || options.folderPath;
     print('generating service worker...');
     const precache = [];
@@ -154,8 +154,8 @@ function generateServiceWorker(options, manifest) {
         sw = fs_extra_1.default.readFileSync(path_1.default.join(options.folderPath, serviceWorkerFileName)).toString();
     }
     catch (e) {
-        if (options.serviceWorkerFileName) {
-            console.error(`no service worker file at ${options.serviceWorkerFileName}`);
+        if (options.serviceWorker) {
+            console.error(`no service worker file at ${options.serviceWorker}`);
             throw e;
         }
     }
@@ -167,7 +167,7 @@ function generateServiceWorker(options, manifest) {
                 .concat(precache.map((v) => `'${v}'`))
                 .join(', ') +
             ',');
-        sw = sw.replace(`const CACHE_NAME = 'cache-v1';`, `const CACHE_NAME = 'cache-${(+new Date()).toString(36)}';`);
+        sw = sw.replace(`const CACHE_NAME = 'cache-name';`, `const CACHE_NAME = 'cache-${(+new Date()).toString(36)}';`);
         sw = sw.replace(`const DEV = true;`, `const DEV = false;`);
         fs_extra_1.default.writeFileSync(path_1.default.join(exportFolder, serviceWorkerFileName), sw);
     }
@@ -295,6 +295,8 @@ function spa2ipfs(options) {
   `;
         }
     }
+    // TODO preserve query params and hash when "index.html" is sliced
+    // TODO preserve query params and hash when no slash at the end and this is added
     const redirectScript = `
       <script>
         let newLocation = location.href;
@@ -305,7 +307,7 @@ function spa2ipfs(options) {
         }
         const pathname = location.pathname;
         if (pathname.endsWith('index.html')) {
-          newLocation = newLocation.slice(0, newLocation.length - 10);
+          newLocation = newLocation.slice(0, newLocation.length - 10); 
         } else if (!pathname.endsWith('/')) {
           newLocation = newLocation + '/';
         }
@@ -332,6 +334,8 @@ function spa2ipfs(options) {
             `${linkReloadScript}` +
             indexHtml.slice(headEnd);
     generatePages(indexHtml, options, manifest);
-    generateServiceWorker(options, manifest);
+    if (options.serviceWorker) {
+        generateServiceWorker(options, manifest);
+    }
 }
 exports.spa2ipfs = spa2ipfs;
