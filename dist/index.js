@@ -4,8 +4,8 @@ const lib_1 = require("./lib");
 function default_1(snowpackConfig, options) {
     return {
         name: 'snowpack-plugin-ipfs',
-        async optimize({ buildDirectory }) {
-            await lib_1.spa2ipfs(Object.assign(Object.assign({}, options), { folderPath: buildDirectory, routes: options.routes.map((v) => v === '/' ? '' : v) }));
+        async optimize({ buildDirectory, log }) {
+            await lib_1.spa2ipfs(Object.assign(Object.assign({}, options), { folderPath: buildDirectory }), log);
         },
     };
 }

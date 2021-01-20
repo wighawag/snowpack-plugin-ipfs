@@ -5,7 +5,7 @@ import namehash from 'eth-ens-namehash';
 import slash from 'slash';
 
 export type SPA2IPFSOptions = {
-  routes: string[];
+  routes: string[] | (() => string[]);
   folderPath: string;
   targetFolderPath?: string;
   serviceWorker?: string;
@@ -28,6 +28,8 @@ type Manifest = {
   }>;
 }
 
+let logFunc: (msg: string) => void = (msg) => console.log(msg);
+
 // from: https://stackoverflow.com/a/17886301
 function escapeRegExp(stringToGoIntoTheRegex: string): string {
   return stringToGoIntoTheRegex.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
@@ -43,9 +45,9 @@ function insertTopOfHead(indexHtml: string, content: string): string {
   return indexHtml;
 }
 
-async function generatePages(indexHtml: string, options: SPA2IPFSOptions, manifest?: Manifest) {
+async function generatePages(indexHtml: string, routes: string[], options: SPA2IPFSOptions, manifest?: Manifest) {
   const exportFolder = options.targetFolderPath || options.folderPath;
-  print('generating pages and rebasing path relative...');
+  logFunc('generating pages and rebasing path relative...');
   const template = indexHtml;
   const findSrc = 'src="/';
   const reSrc = new RegExp(findSrc, 'g');
@@ -77,21 +79,21 @@ async function generatePages(indexHtml: string, options: SPA2IPFSOptions, manife
           continue;
         }
         const relativePath = "./" + slash(path.relative(path.dirname(outputFilePath), file.path));
-        // console.log({relativePath, outputFilePath, path: file.path});
+        // logFunc({relativePath, outputFilePath, path: file.path});
         input = input.replace(file.regex, relativePath)
       }
       fs.writeFileSync(assetPath, input);
     }
   }
 
-
-  for (const page of options.routes) {
+  
+  for (const page of routes) {
     if (page.endsWith('.*')) {
       continue;
     }
     const folderPath = path.join(exportFolder, page);
     const indexFilepath = path.join(folderPath, 'index.html');
-    // console.log({indexFilepath});
+    // logFunc({indexFilepath});
     const numSlashes = page.split('/').length - 1;
     let baseHref = '';
     if (page != '') {
@@ -164,7 +166,7 @@ async function generatePages(indexHtml: string, options: SPA2IPFSOptions, manife
       }
     }
   }
-  print(' done\n');
+  // print(' done');
 }
 
 function generateCacheURLs(
@@ -187,10 +189,10 @@ function generateCacheURLs(
   return bundleFiles;
 }
 
-function generateServiceWorker(options: SPA2IPFSOptions, manifest?: Manifest) {
+function generateServiceWorker(routes: string[], options: SPA2IPFSOptions, manifest?: Manifest) {
   const serviceWorkerFileName = options.serviceWorker || 'sw.js';
   const exportFolder = options.targetFolderPath || options.folderPath;
-  print('generating service worker...');
+  logFunc('generating service worker...');
 
   const precache: string[] = [];
   if (manifest) {
@@ -212,7 +214,7 @@ function generateServiceWorker(options: SPA2IPFSOptions, manifest?: Manifest) {
     sw = sw.replace(
       'const URLS_TO_PRE_CACHE = [',
       'const URLS_TO_PRE_CACHE = [' +
-        options.routes
+        routes
           .filter((v) => !v.endsWith('.*'))
           .map((v) => (v === '' ? `''` : `'${v}/'`))
           .concat(precache.map((v) => `'${v}'`))
@@ -229,10 +231,12 @@ function generateServiceWorker(options: SPA2IPFSOptions, manifest?: Manifest) {
 
     fs.writeFileSync(path.join(exportFolder, serviceWorkerFileName), sw);
   }
-  print(' done\n');
+  // print(' done');
 }
 
-export function spa2ipfs(options: SPA2IPFSOptions) {
+
+export function spa2ipfs(options: SPA2IPFSOptions, log?: (msg: string) => void) {
+  logFunc = log || logFunc;
   const exportFolder = options.targetFolderPath || options.folderPath;
   fs.ensureDirSync(exportFolder);
 
@@ -241,7 +245,7 @@ export function spa2ipfs(options: SPA2IPFSOptions) {
   try {
     manifest = JSON.parse(fs.readFileSync(path.join(options.folderPath, 'build-manifest.json')).toString());
   } catch (e) {
-    console.log("no build-manifest file found")
+    logFunc("no build-manifest file found")
   }
 
   let indexHtml = fs
@@ -253,7 +257,7 @@ export function spa2ipfs(options: SPA2IPFSOptions) {
   const basePathScript = `
       <script>
         window.relpath="/";
-        const count = (window.relpath.match(/\.\./g) || []).length;
+        const count = (window.relpath.match(/\\.\\.\\//g) || []).length;
         let lPathname = location.pathname;
         if (lPathname.endsWith('/')) {
           lPathname = lPathname.slice(0, lPathname.length - 1);
@@ -399,9 +403,15 @@ export function spa2ipfs(options: SPA2IPFSOptions) {
     `${linkReloadScript}` +
     indexHtml.slice(headEnd);
 
-
-  generatePages(indexHtml, options, manifest);
+  let routes = [];
+  if (typeof options.routes === 'function') {
+    routes = options.routes();
+  } else {
+    routes = options.routes;
+  }
+  routes = routes.map((v) => v === '/' ? '' : v);
+  generatePages(indexHtml, routes, options, manifest);
   if (options.serviceWorker) {
-    generateServiceWorker(options, manifest);
+    generateServiceWorker(routes, options, manifest);
   }
 }

@@ -9,6 +9,7 @@ const path_1 = __importDefault(require("path"));
 const fs_extra_1 = __importDefault(require("fs-extra"));
 const eth_ens_namehash_1 = __importDefault(require("eth-ens-namehash"));
 const slash_1 = __importDefault(require("slash"));
+let logFunc = (msg) => console.log(msg);
 // from: https://stackoverflow.com/a/17886301
 function escapeRegExp(stringToGoIntoTheRegex) {
     return stringToGoIntoTheRegex.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
@@ -21,9 +22,9 @@ function insertTopOfHead(indexHtml, content) {
     indexHtml = indexHtml.slice(0, head) + content + indexHtml.slice(head);
     return indexHtml;
 }
-async function generatePages(indexHtml, options, manifest) {
+async function generatePages(indexHtml, routes, options, manifest) {
     const exportFolder = options.targetFolderPath || options.folderPath;
-    print('generating pages and rebasing path relative...');
+    logFunc('generating pages and rebasing path relative...');
     const template = indexHtml;
     const findSrc = 'src="/';
     const reSrc = new RegExp(findSrc, 'g');
@@ -51,19 +52,19 @@ async function generatePages(indexHtml, options, manifest) {
                     continue;
                 }
                 const relativePath = "./" + slash_1.default(path_1.default.relative(path_1.default.dirname(outputFilePath), file.path));
-                // console.log({relativePath, outputFilePath, path: file.path});
+                // logFunc({relativePath, outputFilePath, path: file.path});
                 input = input.replace(file.regex, relativePath);
             }
             fs_extra_1.default.writeFileSync(assetPath, input);
         }
     }
-    for (const page of options.routes) {
+    for (const page of routes) {
         if (page.endsWith('.*')) {
             continue;
         }
         const folderPath = path_1.default.join(exportFolder, page);
         const indexFilepath = path_1.default.join(folderPath, 'index.html');
-        // console.log({indexFilepath});
+        // logFunc({indexFilepath});
         const numSlashes = page.split('/').length - 1;
         let baseHref = '';
         if (page != '') {
@@ -124,7 +125,7 @@ async function generatePages(indexHtml, options, manifest) {
             }
         }
     }
-    print(' done\n');
+    // print(' done');
 }
 function generateCacheURLs(exportFolder, subFolders, filter) {
     if (!filter) {
@@ -139,10 +140,10 @@ function generateCacheURLs(exportFolder, subFolders, filter) {
     }
     return bundleFiles;
 }
-function generateServiceWorker(options, manifest) {
+function generateServiceWorker(routes, options, manifest) {
     const serviceWorkerFileName = options.serviceWorker || 'sw.js';
     const exportFolder = options.targetFolderPath || options.folderPath;
-    print('generating service worker...');
+    logFunc('generating service worker...');
     const precache = [];
     if (manifest) {
         for (const outputFilePath of Object.keys(manifest.outputs)) {
@@ -161,7 +162,7 @@ function generateServiceWorker(options, manifest) {
     }
     if (sw) {
         sw = sw.replace('const URLS_TO_PRE_CACHE = [', 'const URLS_TO_PRE_CACHE = [' +
-            options.routes
+            routes
                 .filter((v) => !v.endsWith('.*'))
                 .map((v) => (v === '' ? `''` : `'${v}/'`))
                 .concat(precache.map((v) => `'${v}'`))
@@ -171,9 +172,10 @@ function generateServiceWorker(options, manifest) {
         sw = sw.replace(`const DEV = true;`, `const DEV = false;`);
         fs_extra_1.default.writeFileSync(path_1.default.join(exportFolder, serviceWorkerFileName), sw);
     }
-    print(' done\n');
+    // print(' done');
 }
-function spa2ipfs(options) {
+function spa2ipfs(options, log) {
+    logFunc = log || logFunc;
     const exportFolder = options.targetFolderPath || options.folderPath;
     fs_extra_1.default.ensureDirSync(exportFolder);
     let manifest;
@@ -181,7 +183,7 @@ function spa2ipfs(options) {
         manifest = JSON.parse(fs_extra_1.default.readFileSync(path_1.default.join(options.folderPath, 'build-manifest.json')).toString());
     }
     catch (e) {
-        console.log("no build-manifest file found");
+        logFunc("no build-manifest file found");
     }
     let indexHtml = fs_extra_1.default
         .readFileSync(path_1.default.join(options.folderPath, 'index.html'))
@@ -191,7 +193,7 @@ function spa2ipfs(options) {
     const basePathScript = `
       <script>
         window.relpath="/";
-        const count = (window.relpath.match(/\.\./g) || []).length;
+        const count = (window.relpath.match(/\\.\\.\\//g) || []).length;
         let lPathname = location.pathname;
         if (lPathname.endsWith('/')) {
           lPathname = lPathname.slice(0, lPathname.length - 1);
@@ -333,9 +335,17 @@ function spa2ipfs(options) {
         indexHtml.slice(0, headEnd) +
             `${linkReloadScript}` +
             indexHtml.slice(headEnd);
-    generatePages(indexHtml, options, manifest);
+    let routes = [];
+    if (typeof options.routes === 'function') {
+        routes = options.routes();
+    }
+    else {
+        routes = options.routes;
+    }
+    routes = routes.map((v) => v === '/' ? '' : v);
+    generatePages(indexHtml, routes, options, manifest);
     if (options.serviceWorker) {
-        generateServiceWorker(options, manifest);
+        generateServiceWorker(routes, options, manifest);
     }
 }
 exports.spa2ipfs = spa2ipfs;

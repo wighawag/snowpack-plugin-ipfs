@@ -2,7 +2,7 @@ import type {PluginOptimizeOptions, SnowpackConfig, SnowpackPlugin} from 'snowpa
 import {spa2ipfs} from './lib';
 
 export type SPA2IPFSPluginOptions = {
-  routes: string[];
+  routes: string[] | (() => string[]);
   // targetFolderPath?: string; // TODO remove
   serviceWorker?: string;
   useBaseElem?: boolean;
@@ -14,8 +14,8 @@ export type SPA2IPFSPluginOptions = {
 export default function (snowpackConfig: SnowpackConfig, options: SPA2IPFSPluginOptions): SnowpackPlugin {
   return {
     name: 'snowpack-plugin-ipfs',
-    async optimize({buildDirectory}: PluginOptimizeOptions): Promise<void> {
-      await spa2ipfs({...options, folderPath: buildDirectory, routes: options.routes.map((v) => v === '/' ? '' : v)})
+    async optimize({buildDirectory, log}: PluginOptimizeOptions & {log?: (msg: string) => void}): Promise<void> {
+      await spa2ipfs({...options, folderPath: buildDirectory}, log);
     },
   };
 };
