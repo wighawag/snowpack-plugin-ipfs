@@ -208,7 +208,7 @@ function spa2ipfs(options, log) {
         if (manifest.outputs) {
             for (const key of Object.keys(manifest.outputs)) {
                 if (key.indexOf('~~bundle~~') >= 0) {
-                    throw new Error(`ipfs plugin requires optimize config.manifest to be true`);
+                    throw new Error(`ipfs plugin requires config: optimize.manifest=true`);
                 }
             }
         }
