@@ -63,26 +63,34 @@ async function generatePages(indexHtml: string, routes: string[], options: SPA2I
       path: string;
       regex: RegExp;
     }[] = []
-    for (const outputFilePath of Object.keys(manifest.outputs)) {
-      files.push({
-        path: outputFilePath,
-        regex:new RegExp(outputFilePath, 'g')
-      })
-    }
-    for (const outputFilePath of Object.keys(manifest.outputs)) {
-      const filepath = outputFilePath.slice(1);
-      const fromAssetPath = path.join(options.folderPath, filepath);
-      const assetPath = path.join(exportFolder, filepath);
-      let input = fs.readFileSync(fromAssetPath).toString();
-      for (const file of files) {
-        if (file.path === outputFilePath) {
-          continue;
-        }
-        const relativePath = "./" + slash(path.relative(path.dirname(outputFilePath), file.path));
-        // logFunc({relativePath, outputFilePath, path: file.path});
-        input = input.replace(file.regex, relativePath)
+    let fileInfos: Record<string, any> = manifest.outputs;
+    // if (!fileInfos) {
+    //   fileInfos = manifest.inputs;
+    // }
+    if (fileInfos) {// TODO better do not transform if already relative path ?
+      logFunc(`replacing absolute url with relative url...`);
+      for (const fileKey of Object.keys(fileInfos)) {
+        files.push({
+          path: fileKey,
+          regex:new RegExp(fileKey, 'g')
+        })
       }
-      fs.writeFileSync(assetPath, input);
+      for (const fileKey of Object.keys(fileInfos)) {
+        const startWithSlash = fileKey.startsWith("/");
+        const filepath = startWithSlash ? fileKey.slice(1) : fileKey;
+        const fromAssetPath = path.join(options.folderPath, filepath);
+        const assetPath = path.join(exportFolder, filepath);
+        let input = fs.readFileSync(fromAssetPath).toString();
+        for (const file of files) {
+          if (file.path === fileKey) {
+            continue;
+          }
+          const relativePath = "./" + slash(path.relative(path.dirname(fileKey), file.path));
+          // logFunc({relativePath, fileKey, path: file.path});
+          input = input.replace(file.regex, relativePath)
+        }
+        fs.writeFileSync(assetPath, input);
+      }
     }
   }
 
@@ -196,8 +204,13 @@ function generateServiceWorker(routes: string[], options: SPA2IPFSOptions, manif
 
   const precache: string[] = [];
   if (manifest) {
-    for (const outputFilePath of Object.keys(manifest.outputs)) {
-      precache.push(outputFilePath.slice(1));
+    let fileInfos: Record<string, any> = manifest.outputs;
+    if (!fileInfos) {
+        fileInfos = manifest.inputs;
+    }
+    for (const fileKey of Object.keys(fileInfos)) {
+      const startWithSlash = fileKey.startsWith("/");
+      precache.push(startWithSlash ? fileKey.slice(1): fileKey);
     }
   }
 
@@ -243,9 +256,23 @@ export function spa2ipfs(options: SPA2IPFSOptions, log?: (msg: string) => void) 
 
   let manifest: Manifest | undefined;
   try {
-    manifest = JSON.parse(fs.readFileSync(path.join(options.folderPath, 'build-manifest.json')).toString());
+    const manifestString = fs.readFileSync(path.join(options.folderPath, 'build-manifest.json')).toString();
+    manifest = JSON.parse(manifestString);
   } catch (e) {
-    logFunc("no build-manifest file found")
+    logFunc("no build-manifest.json file found. Please enable manifest in snowpack optimize config")
+  }
+  // TODO transform manifest and handle case with `../~~bundle~~` in output keys
+  // for now : throw if manifest: false
+  if(!manifest) {
+    throw new Error(`ipfs plugin requires config: optimize.manifest = true`);
+  } else {
+    if (manifest.outputs) {
+      for(const key of Object.keys(manifest.outputs)) {
+        if (key.indexOf('~~bundle~~') >=  0) {
+          throw new Error(`ipfs plugin requires optimize config.manifest to be true`);
+        }
+      }
+    }
   }
 
   let indexHtml = fs
@@ -279,8 +306,12 @@ export function spa2ipfs(options: SPA2IPFSOptions, log?: (msg: string) => void) 
   if (config && config.ensName && options.ethLinkErrorRedirect) {
 
     if (manifest) {
-      for (const outputFilePath of Object.keys(manifest.outputs)) {
-        indexHtml = indexHtml.replace(new RegExp(escapeRegExp(`"${outputFilePath}"`), "g"), `"${outputFilePath}" onerror="window.onFailingResource()"`)
+      let fileInfos: Record<string, any> = manifest.outputs;
+      if (!fileInfos) {
+        fileInfos = manifest.inputs;
+      }
+      for (const fileKey of Object.keys(fileInfos)) {
+        indexHtml = indexHtml.replace(new RegExp(escapeRegExp(`"${fileKey}"`), "g"), `"${fileKey}" onerror="window.onFailingResource()"`)
       }
     } else {
       // indexHtml = indexHtml.replace(
