@@ -9,6 +9,10 @@ const path_1 = __importDefault(require("path"));
 const fs_extra_1 = __importDefault(require("fs-extra"));
 const eth_ens_namehash_1 = __importDefault(require("eth-ens-namehash"));
 const slash_1 = __importDefault(require("slash"));
+// from: https://stackoverflow.com/a/17886301
+function escapeRegExp(stringToGoIntoTheRegex) {
+    return stringToGoIntoTheRegex.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+}
 function print(message) {
     process.stdout.write(message);
 }
@@ -183,7 +187,7 @@ function spa2ipfs(options) {
         .readFileSync(path_1.default.join(options.folderPath, 'index.html'))
         .toString();
     // injected in the html for each page
-    // `window.relpath="/"` will then be replaced with `window.relpath=<route>`
+    // `window.relpath="/"` will then be replaced with `window.relpath=../` etc, based on how far down the route is
     const basePathScript = `
       <script>
         window.relpath="/";
@@ -206,11 +210,17 @@ function spa2ipfs(options) {
     }
     catch (e) { }
     if (config && config.ensName && options.ethLinkErrorRedirect) {
-        // TODO snowpack
-        // indexHtml = indexHtml.replace(
-        //   /(="\/_assets\/.*")/g,
-        //   '$1 onerror="window.onFailingResource()"'
-        // );
+        if (manifest) {
+            for (const outputFilePath of Object.keys(manifest.outputs)) {
+                indexHtml = indexHtml.replace(new RegExp(escapeRegExp(`"${outputFilePath}"`), "g"), `"${outputFilePath}" onerror="window.onFailingResource()"`);
+            }
+        }
+        else {
+            // indexHtml = indexHtml.replace(
+            //   /(="\/dist\/.*")/g,
+            //   '$1 onerror="window.onFailingResource()"'
+            // );  
+        }
         fs_extra_1.default.ensureDirSync(path_1.default.join(exportFolder, 'scripts'));
         fs_extra_1.default.copyFileSync(path_1.default.join(__dirname, 'scripts', 'asteroid-alert.js'), path_1.default.join(exportFolder, 'scripts', 'asteroid-alert.js'));
         const handleEthLink = `

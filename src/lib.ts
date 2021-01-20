@@ -28,6 +28,11 @@ type Manifest = {
   }>;
 }
 
+// from: https://stackoverflow.com/a/17886301
+function escapeRegExp(stringToGoIntoTheRegex: string): string {
+  return stringToGoIntoTheRegex.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+}
+
 function print(message: string) {
   process.stdout.write(message);
 }
@@ -244,7 +249,7 @@ export function spa2ipfs(options: SPA2IPFSOptions) {
     .toString();
 
   // injected in the html for each page
-  // `window.relpath="/"` will then be replaced with `window.relpath=<route>`
+  // `window.relpath="/"` will then be replaced with `window.relpath=../` etc, based on how far down the route is
   const basePathScript = `
       <script>
         window.relpath="/";
@@ -269,12 +274,17 @@ export function spa2ipfs(options: SPA2IPFSOptions) {
   } catch (e) {}
   if (config && config.ensName && options.ethLinkErrorRedirect) {
 
-    // TODO snowpack
-    // indexHtml = indexHtml.replace(
-    //   /(="\/_assets\/.*")/g,
-    //   '$1 onerror="window.onFailingResource()"'
-    // );
-
+    if (manifest) {
+      for (const outputFilePath of Object.keys(manifest.outputs)) {
+        indexHtml = indexHtml.replace(new RegExp(escapeRegExp(`"${outputFilePath}"`), "g"), `"${outputFilePath}" onerror="window.onFailingResource()"`)
+      }
+    } else {
+      // indexHtml = indexHtml.replace(
+      //   /(="\/dist\/.*")/g,
+      //   '$1 onerror="window.onFailingResource()"'
+      // );  
+    }
+    
     fs.ensureDirSync(path.join(exportFolder, 'scripts'));
     fs.copyFileSync(path.join(__dirname, 'scripts', 'asteroid-alert.js'), path.join(exportFolder, 'scripts', 'asteroid-alert.js'));
     const handleEthLink = `
@@ -348,6 +358,8 @@ export function spa2ipfs(options: SPA2IPFSOptions) {
   `;
     }
   }
+  // TODO preserve query params and hash when "index.html" is sliced
+  // TODO preserve query params and hash when no slash at the end and this is added
   const redirectScript = `
       <script>
         let newLocation = location.href;
@@ -358,7 +370,7 @@ export function spa2ipfs(options: SPA2IPFSOptions) {
         }
         const pathname = location.pathname;
         if (pathname.endsWith('index.html')) {
-          newLocation = newLocation.slice(0, newLocation.length - 10);
+          newLocation = newLocation.slice(0, newLocation.length - 10); 
         } else if (!pathname.endsWith('/')) {
           newLocation = newLocation + '/';
         }
