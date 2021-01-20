@@ -357,11 +357,18 @@ function spa2ipfs(options, log) {
         document.querySelectorAll("link[href]").forEach((v) => v.href = v.href);
       </script>
   `;
-    const headStart = indexHtml.indexOf('<head>') + 6;
+    let scriptStart = indexHtml.indexOf('<!--SCRIPTS-->');
+    if (scriptStart === -1) {
+        // TODO const regex = /<meta .*charset=.*(>)/;
+        scriptStart = indexHtml.indexOf('<head>') + 6;
+    }
+    else {
+        scriptStart += 14;
+    }
     indexHtml =
-        indexHtml.slice(0, headStart) +
+        indexHtml.slice(0, scriptStart) +
             `${basePathScript}${redirectScript}` +
-            indexHtml.slice(headStart);
+            indexHtml.slice(scriptStart);
     const headEnd = indexHtml.indexOf('</head>');
     indexHtml =
         indexHtml.slice(0, headEnd) +
