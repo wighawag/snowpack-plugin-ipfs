@@ -278,6 +278,18 @@ export function spa2ipfs(options: SPA2IPFSOptions, log?: (msg: string) => void) 
           throw new Error(`ipfs plugin requires config: optimize.manifest=true`);
         }
       }
+
+      const findDistPaths = '"/dist/';
+      const reDistPaths = new RegExp(findDistPaths, 'g');
+      for(const key of Object.keys(manifest.outputs)) {
+        if (key.endsWith(".js")) {
+          const filepath = path.join(options.folderPath, key);
+          let content = fs.readFileSync(filepath).toString();
+          content = content.replace(reDistPaths, 'window.relpath+"dist/');
+          fs.writeFileSync(filepath, content);
+          // TODO fix sourcemap ?
+        }
+      }
     }
   }
 

@@ -218,6 +218,16 @@ function spa2ipfs(options, log) {
                     throw new Error(`ipfs plugin requires config: optimize.manifest=true`);
                 }
             }
+            const findDistPaths = '"/dist/';
+            const reDistPaths = new RegExp(findDistPaths, 'g');
+            for (const key of Object.keys(manifest.outputs)) {
+                if (key.endsWith(".js")) {
+                    const filepath = path_1.default.join(options.folderPath, key);
+                    let content = fs_extra_1.default.readFileSync(filepath).toString();
+                    content = content.replace(reDistPaths, 'window.relpath+"dist/');
+                    fs_extra_1.default.writeFileSync(filepath, content);
+                }
+            }
         }
     }
     let indexHtml = fs_extra_1.default
