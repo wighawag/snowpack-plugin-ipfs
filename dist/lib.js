@@ -220,12 +220,16 @@ function spa2ipfs(options, log) {
             }
             const findDistPaths = '"/dist/';
             const reDistPaths = new RegExp(findDistPaths, 'g');
+            const findSrcPaths = 'src="/';
+            const reSrcPaths = new RegExp(findSrcPaths, 'g');
             for (const key of Object.keys(manifest.outputs)) {
                 if (key.endsWith(".js")) {
                     const filepath = path_1.default.join(options.folderPath, key);
                     let content = fs_extra_1.default.readFileSync(filepath).toString();
-                    content = content.replace(reDistPaths, 'window.relpath+"dist/');
+                    content = content.replace(reDistPaths, 'window.basepath+"dist/');
+                    content = content.replace(reSrcPaths, 'src=window.basepath+"');
                     fs_extra_1.default.writeFileSync(filepath, content);
+                    // TODO fix sourcemap ?
                 }
             }
         }
