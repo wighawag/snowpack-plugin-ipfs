@@ -1,6 +1,6 @@
 {
   "name": "snowpack-plugin-ipfs",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Snowpack plugin to transform the build output into a ipfs compatible build",
   "keywords": [
     "web",

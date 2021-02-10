@@ -281,14 +281,14 @@ export function spa2ipfs(options: SPA2IPFSOptions, log?: (msg: string) => void) 
 
       const findDistPaths = '"/dist/';
       const reDistPaths = new RegExp(findDistPaths, 'g');
-      const findSrcPaths = 'src="/';
-      const reSrcPaths = new RegExp(findSrcPaths, 'g');
+      // const findSrcPaths = 'src="/';
+      // const reSrcPaths = new RegExp(findSrcPaths, 'g');
       for(const key of Object.keys(manifest.outputs)) {
         if (key.endsWith(".js")) {
           const filepath = path.join(options.folderPath, key);
           let content = fs.readFileSync(filepath).toString();
           content = content.replace(reDistPaths, 'window.basepath+"dist/');
-          content = content.replace(reSrcPaths, 'src=window.basepath+"');
+          // content = content.replace(reSrcPaths, 'src=window.basepath+"'); // this does not work as this will replace static src, link should use window.basepath + relative url (relative to root)
           fs.writeFileSync(filepath, content);
           // TODO fix sourcemap ?
         }
